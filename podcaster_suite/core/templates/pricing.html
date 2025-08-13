@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Pricing{% endblock %}
+
+{% block content %}
+    <h2>Pricing Plans</h2>
+    {% for plan in plans %}
+        <div>
+            <h3>{{ plan.name }}</h3>
+            <p>${{ plan.price }}/month</p>
+            <p>{{ plan.processing_hours }} hours of audio processing per month.</p>
+            <a href="{% url 'create_checkout_session' plan.stripe_price_id %}" class="button">Subscribe</a>
+        </div>
+    {% endfor %}
+{% endblock %}

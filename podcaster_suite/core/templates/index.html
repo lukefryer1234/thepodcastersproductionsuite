@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <p>Welcome, {{ user.username }}!</p>
+        <a href="{% url 'upload_file' %}" class="button">Upload Audio File</a>
+
+        <h2>Your Audio Files</h2>
+        <ul>
+            {% for audio_file in audio_files %}
+                <li>
+                    {{ audio_file.title }} - <a href="{{ audio_file.audio_file.url }}" download>Download Original</a>
+                    <a href="{% url 'de_um_audio' audio_file.id %}">De-Um Audio</a>
+                    <a href="{% url 'generate_show_notes' audio_file.id %}">Generate Show Notes</a>
+                </li>
+            {% empty %}
+                <li>No audio files uploaded yet.</li>
+            {% endfor %}
+        </ul>
+
+        <h2>Processed Audio Files</h2>
+        <ul>
+            {% for processed_file in processed_audio_files %}
+                <li>
+                    {{ processed_file.original_file.title }} (Processed) -
+                    <a href="{{ processed_file.processed_file.url }}" download>Download Processed</a>
+                </li>
+            {% empty %}
+                <li>No processed audio files yet.</li>
+            {% endfor %}
+        </ul>
+
+        <h2>Show Notes</h2>
+        <ul>
+            {% for note in show_notes %}
+                <li>
+                    <h3>{{ note.audio_file.title }}</h3>
+                    <textarea id="show_notes_{{ note.id }}" rows="10" cols="80">{{ note.notes }}</textarea>
+                    <br>
+                    <button onclick="copyToClipboard('show_notes_{{ note.id }}')">Copy to Clipboard</button>
+                    <a href="data:text/plain;charset=utf-8,{{ note.notes|urlencode }}" download="{{ note.audio_file.title }}_shownotes.txt">Download as .txt</a>
+                </li>
+            {% empty %}
+                <li>No show notes generated yet.</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Welcome to The Podcaster's Production Suite! Please <a href="{% url 'login' %}">login</a> or <a href="{% url 'register' %}">register</a> to get started.</p>
+    {% endif %}
+
+    <script>
+        function copyToClipboard(elementId) {
+            var copyText = document.getElementById(elementId);
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); /* For mobile devices */
+            document.execCommand("copy");
+        }
+    </script>
+{% endblock %}
