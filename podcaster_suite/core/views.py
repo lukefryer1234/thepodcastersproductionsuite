@@ -22,18 +22,25 @@ stripe.api_key = STRIPE_API_KEY
 
 def index(request):
     if request.user.is_authenticated:
-        audio_files = AudioFile.objects.filter(user=request.user)
-        processed_audio_files = ProcessedAudioFile.objects.filter(original_file__user=request.user)
-        show_notes = ShowNotes.objects.filter(audio_file__user=request.user)
-    else:
-        audio_files = []
-        processed_audio_files = []
-        show_notes = []
+        return redirect('dashboard')
+    return render(request, "index.html")
 
-    return render(request, "index.html", {
+@login_required
+def dashboard(request):
+    audio_files = AudioFile.objects.filter(user=request.user)
+    processed_audio_files = ProcessedAudioFile.objects.filter(original_file__user=request.user)
+    show_notes = ShowNotes.objects.filter(audio_file__user=request.user)
+
+    try:
+        subscription = UserSubscription.objects.get(user=request.user)
+    except UserSubscription.DoesNotExist:
+        subscription = None
+
+    return render(request, "dashboard.html", {
         "audio_files": audio_files,
         "processed_audio_files": processed_audio_files,
         "show_notes": show_notes,
+        "subscription": subscription,
     })
 
 @login_required

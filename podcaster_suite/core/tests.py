@@ -12,8 +12,8 @@ class CoreViewsTest(TestCase):
 
     def test_index_view_authenticated(self):
         response = self.client.get(reverse('index'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'index.html')
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('dashboard'))
 
     def test_index_view_unauthenticated(self):
         self.client.logout()
@@ -55,8 +55,8 @@ class AuthViewsTest(TestCase):
             'username': self.user_credentials['username'],
             'password': self.user_credentials['password'],
         })
-        self.assertEqual(response.status_code, 302) # Should redirect to index
-        self.assertRedirects(response, reverse('index'))
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('dashboard'))
 
     def test_logout_view(self):
         self.client.login(username=self.user_credentials['username'], password=self.user_credentials['password'])
@@ -99,3 +99,24 @@ class ModelsTest(TestCase):
     def test_user_subscription_model(self):
         user_sub = UserSubscription.objects.create(user=self.user, subscription_plan=self.plan)
         self.assertEqual(str(user_sub), "testuser's subscription")
+
+class DashboardViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpassword')
+        self.plan = SubscriptionPlan.objects.create(name='Test Plan', stripe_price_id='price_123', price=10.00, processing_hours=5)
+        self.subscription = UserSubscription.objects.create(user=self.user, subscription_plan=self.plan, is_active=True, remaining_processing_hours=5)
+
+    def test_dashboard_view_authenticated(self):
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboard.html')
+        self.assertContains(response, 'Test Plan')
+        self.assertContains(response, 'Active')
+        self.assertContains(response, '5 hours')
+
+    def test_dashboard_view_unauthenticated(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")
