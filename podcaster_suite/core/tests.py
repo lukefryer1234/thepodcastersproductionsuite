@@ -3,6 +3,10 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from .models import AudioFile, ProcessedAudioFile, ShowNotes, SubscriptionPlan, UserSubscription
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.conf import settings
+import os
+import shutil
+from unittest.mock import patch
 
 class CoreViewsTest(TestCase):
     def setUp(self):
@@ -135,8 +139,6 @@ class DashboardViewTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")
 
-from unittest.mock import patch
-
 class SubscriptionManagementTest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -156,3 +158,71 @@ class SubscriptionManagementTest(TestCase):
         response = self.client.get(reverse('create_portal_session'))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, 'https://stripe.com/portal')
+
+class ProcessingTimeTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(settings.MEDIA_ROOT)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpassword')
+        self.plan = SubscriptionPlan.objects.create(name='Test Plan', stripe_price_id='price_123', price=10.00, processing_hours=5)
+        self.subscription = UserSubscription.objects.create(user=self.user, subscription_plan=self.plan, is_active=True, remaining_processing_hours=5)
+
+        self.audio_content = b'This is a test audio file.'
+        self.audio_file_obj = SimpleUploadedFile("test.mp3", self.audio_content, content_type="audio/mpeg")
+        self.audio_file = AudioFile.objects.create(user=self.user, title='Test Audio', audio_file=self.audio_file_obj)
+
+    @patch('core.views.process_audio_with_deepgram')
+    @patch('pydub.AudioSegment.from_file')
+    def test_deduct_processing_time_de_um(self, mock_from_file, mock_process_audio):
+        mock_audio = type('obj', (object,), {'__len__': lambda self: 3600 * 1000})() # 1 hour
+        mock_from_file.return_value = mock_audio
+
+        processed_filename = 'processed.mp3'
+        processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+        with open(processed_file_path, 'wb') as f:
+            f.write(self.audio_content)
+
+        mock_process_audio.return_value = (processed_file_path, processed_filename)
+
+        self.client.login(username='testuser', password='testpassword')
+        self.client.get(reverse('de_um_audio', args=[self.audio_file.id]))
+
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.remaining_processing_hours, 4)
+
+    @patch('core.views.get_transcript')
+    @patch('core.views.process_with_llm')
+    @patch('pydub.AudioSegment.from_file')
+    def test_deduct_processing_time_show_notes(self, mock_from_file, mock_process_llm, mock_get_transcript):
+        mock_audio = type('obj', (object,), {'__len__': lambda self: 3600 * 1000})() # 1 hour
+        mock_from_file.return_value = mock_audio
+        mock_get_transcript.return_value = "This is a transcript."
+        mock_process_llm.return_value = "These are the show notes."
+
+        self.client.login(username='testuser', password='testpassword')
+        self.client.get(reverse('generate_show_notes', args=[self.audio_file.id]))
+
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.remaining_processing_hours, 4)
+
+    @patch('pydub.AudioSegment.from_file')
+    def test_insufficient_processing_time(self, mock_from_file):
+        mock_audio = type('obj', (object,), {'__len__': lambda self: 3600 * 1000 * 6})() # 6 hours
+        mock_from_file.return_value = mock_audio
+
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('de_um_audio', args=[self.audio_file.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('dashboard'))
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.remaining_processing_hours, 5)

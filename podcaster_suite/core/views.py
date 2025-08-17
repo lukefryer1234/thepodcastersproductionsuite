@@ -75,9 +75,20 @@ def register(request):
         form = RegistrationForm()
     return render(request, 'registration/register.html', {'form': form})
 
+from django.contrib import messages
+
 @login_required
 def de_um_audio(request, audio_file_id):
     audio_file = get_object_or_404(AudioFile, id=audio_file_id, user=request.user)
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+
+    # Check if the user has enough processing time
+    audio = AudioSegment.from_file(audio_file.audio_file.path)
+    duration_hours = len(audio) / (1000 * 60 * 60)
+
+    if subscription.remaining_processing_hours < duration_hours:
+        messages.error(request, "You don't have enough processing time left in your subscription.")
+        return redirect('dashboard')
 
     processed_file_path, processed_filename = process_audio_with_deepgram(audio_file.audio_file.path)
 
@@ -87,7 +98,12 @@ def de_um_audio(request, audio_file_id):
             processed_audio_file.processed_file.save(processed_filename, ContentFile(f.read()))
             processed_audio_file.save()
 
-    return redirect('index')
+            # Deduct the processing time
+            subscription.remaining_processing_hours -= duration_hours
+            subscription.save()
+            messages.success(request, "Your audio has been processed successfully.")
+
+    return redirect('dashboard')
 
 def process_audio_with_deepgram(audio_file_path):
     if not DEEPGRAM_API_KEY:
@@ -145,6 +161,15 @@ def process_audio_with_deepgram(audio_file_path):
 @login_required
 def generate_show_notes(request, audio_file_id):
     audio_file = get_object_or_404(AudioFile, id=audio_file_id, user=request.user)
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+
+    # Check if the user has enough processing time
+    audio = AudioSegment.from_file(audio_file.audio_file.path)
+    duration_hours = len(audio) / (1000 * 60 * 60)
+
+    if subscription.remaining_processing_hours < duration_hours:
+        messages.error(request, "You don't have enough processing time left in your subscription.")
+        return redirect('dashboard')
 
     transcript = get_transcript(audio_file.audio_file.path)
 
@@ -152,7 +177,12 @@ def generate_show_notes(request, audio_file_id):
         notes = process_with_llm(transcript)
         ShowNotes.objects.create(audio_file=audio_file, notes=notes)
 
-    return redirect('index')
+        # Deduct the processing time
+        subscription.remaining_processing_hours -= duration_hours
+        subscription.save()
+        messages.success(request, "Your show notes have been generated successfully.")
+
+    return redirect('dashboard')
 
 def get_transcript(audio_file_path):
     if not DEEPGRAM_API_KEY:
