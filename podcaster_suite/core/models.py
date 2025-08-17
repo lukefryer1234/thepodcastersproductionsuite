@@ -37,6 +37,7 @@ class SubscriptionPlan(models.Model):
 
 class UserSubscription(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)
     subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True)
     stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
     is_active = models.BooleanField(default=False)

@@ -1,6 +1,7 @@
 import os
 import stripe
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from .forms import RegistrationForm, AudioFileForm
 from django.contrib.auth.decorators import login_required
 from .models import AudioFile, ProcessedAudioFile, ShowNotes, SubscriptionPlan, UserSubscription
@@ -219,8 +220,19 @@ def pricing(request):
 
 @login_required
 def create_checkout_session(request, price_id):
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+
+    if not subscription.stripe_customer_id:
+        customer = stripe.Customer.create(
+            email=request.user.email,
+            name=request.user.username,
+        )
+        subscription.stripe_customer_id = customer.id
+        subscription.save()
+
     try:
         checkout_session = stripe.checkout.Session.create(
+            customer=subscription.stripe_customer_id,
             client_reference_id=request.user.id,
             success_url=request.build_absolute_uri('/success?session_id={CHECKOUT_SESSION_ID}'),
             cancel_url=request.build_absolute_uri('/cancel'),
@@ -242,6 +254,15 @@ def success(request):
 @login_required
 def cancel(request):
     return render(request, 'cancel.html')
+
+@login_required
+def create_portal_session(request):
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+    portal_session = stripe.billing_portal.Session.create(
+        customer=subscription.stripe_customer_id,
+        return_url=request.build_absolute_uri(reverse('dashboard')),
+    )
+    return redirect(portal_session.url)
 
 @csrf_exempt
 def stripe_webhook(request):
@@ -277,6 +298,26 @@ def stripe_webhook(request):
         subscription.subscription_plan = plan
         subscription.remaining_processing_hours = plan.processing_hours
 
+        subscription.save()
+
+    elif event['type'] == 'customer.subscription.updated':
+        session = event['data']['object']
+        stripe_subscription_id = session['id']
+        subscription = UserSubscription.objects.get(stripe_subscription_id=stripe_subscription_id)
+
+        # Get the new plan
+        price_id = session['items']['data'][0]['price']['id']
+        plan = SubscriptionPlan.objects.get(stripe_price_id=price_id)
+        subscription.subscription_plan = plan
+        subscription.remaining_processing_hours = plan.processing_hours
+
+        subscription.save()
+
+    elif event['type'] == 'customer.subscription.deleted':
+        session = event['data']['object']
+        stripe_subscription_id = session['id']
+        subscription = UserSubscription.objects.get(stripe_subscription_id=stripe_subscription_id)
+        subscription.is_active = False
         subscription.save()
 
     return HttpResponse(status=200)

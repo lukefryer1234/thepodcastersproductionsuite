@@ -120,3 +120,25 @@ class DashboardViewTest(TestCase):
         response = self.client.get(reverse('dashboard'))
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")
+
+from unittest.mock import patch
+
+class SubscriptionManagementTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpassword')
+        self.plan = SubscriptionPlan.objects.create(name='Test Plan', stripe_price_id='price_123', price=10.00, processing_hours=5)
+        self.subscription = UserSubscription.objects.create(user=self.user, subscription_plan=self.plan, is_active=True, stripe_customer_id='cus_123')
+
+    def test_manage_subscription_button_present(self):
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, 'Manage Subscription')
+
+    @patch('stripe.billing_portal.Session.create')
+    def test_create_portal_session_redirects(self, mock_create_session):
+        mock_create_session.return_value = type('obj', (object,), {'url': 'https://stripe.com/portal'})
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('create_portal_session'))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, 'https://stripe.com/portal')

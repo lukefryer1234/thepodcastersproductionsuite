@@ -16,4 +16,5 @@ urlpatterns = [
     path("success/", views.success, name="success"),
     path("cancel/", views.cancel, name="cancel"),
     path("stripe_webhook/", views.stripe_webhook, name="stripe_webhook"),
+    path("create-portal-session/", views.create_portal_session, name="create_portal_session"),
 ]

@@ -7,10 +7,11 @@
     <p>Welcome, {{ user.username }}!</p>
 
     <h3>Subscription</h3>
-    {% if subscription %}
-        <p>Plan: {{ subscription.subscription_plan.name|default:"Free" }}</p>
-        <p>Status: {% if subscription.is_active %}Active{% else %}Inactive{% endif %}</p>
+    {% if subscription and subscription.is_active %}
+        <p>Plan: {{ subscription.subscription_plan.name }}</p>
+        <p>Status: Active</p>
         <p>Remaining Processing Time: {{ subscription.remaining_processing_hours }} hours</p>
+        <a href="{% url 'create_portal_session' %}" class="button">Manage Subscription</a>
     {% else %}
         <p>You do not have an active subscription.</p>
         <a href="{% url 'pricing' %}" class="button">View Pricing Plans</a>
