@@ -3,10 +3,14 @@
 {% block title %}Upload Audio File{% endblock %}
 
 {% block content %}
-    <h2>Upload Audio File</h2>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Upload</button>
-    </form>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2>Upload Audio File</h2>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
 {% endblock %}

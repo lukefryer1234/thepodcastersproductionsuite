@@ -3,63 +3,101 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-    <h2>Dashboard</h2>
-    <p>Welcome, {{ user.username }}!</p>
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Dashboard</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <a href="{% url 'upload_file' %}" class="btn btn-sm btn-outline-secondary">Upload Audio</a>
+            </div>
+        </div>
+    </div>
 
-    <h3>Subscription</h3>
-    {% if subscription and subscription.is_active %}
-        <p>Plan: {{ subscription.subscription_plan.name }}</p>
-        <p>Status: Active</p>
-        <p>Remaining Processing Time: {{ subscription.remaining_processing_hours }} hours</p>
-        <a href="{% url 'create_portal_session' %}" class="button">Manage Subscription</a>
-    {% else %}
-        <p>You do not have an active subscription.</p>
-        <a href="{% url 'pricing' %}" class="button">View Pricing Plans</a>
-    {% endif %}
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    Subscription
+                </div>
+                <div class="card-body">
+                    {% if subscription and subscription.is_active %}
+                        <h5 class="card-title">{{ subscription.subscription_plan.name }}</h5>
+                        <p class="card-text">Status: Active</p>
+                        <p class="card-text">Remaining Processing Time: {{ subscription.remaining_processing_hours }} hours</p>
+                        <a href="{% url 'create_portal_session' %}" class="btn btn-primary">Manage Subscription</a>
+                    {% else %}
+                        <p class="card-text">You do not have an active subscription.</p>
+                        <a href="{% url 'pricing' %}" class="btn btn-primary">View Pricing Plans</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <hr>
+    <h2 class="mt-4">Your Content</h2>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    Original Audio Files
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for audio_file in audio_files %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ audio_file.title }}
+                            <div>
+                                <a href="{{ audio_file.audio_file.url }}" class="btn btn-sm btn-outline-secondary" download>Download</a>
+                                <a href="{% url 'de_um_audio' audio_file.id %}" class="btn btn-sm btn-outline-primary">De-Um Audio</a>
+                                <a href="{% url 'generate_show_notes' audio_file.id %}" class="btn btn-sm btn-outline-info">Generate Show Notes</a>
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">No audio files uploaded yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
 
-    <a href="{% url 'upload_file' %}" class="button">Upload Audio File</a>
-
-    <h2>Your Audio Files</h2>
-    <ul>
-        {% for audio_file in audio_files %}
-            <li>
-                {{ audio_file.title }} - <a href="{{ audio_file.audio_file.url }}" download>Download Original</a>
-                <a href="{% url 'de_um_audio' audio_file.id %}">De-Um Audio</a>
-                <a href="{% url 'generate_show_notes' audio_file.id %}">Generate Show Notes</a>
-            </li>
-        {% empty %}
-            <li>No audio files uploaded yet.</li>
-        {% endfor %}
-    </ul>
-
-    <h2>Processed Audio Files</h2>
-    <ul>
-        {% for processed_file in processed_audio_files %}
-            <li>
-                {{ processed_file.original_file.title }} (Processed) -
-                <a href="{{ processed_file.processed_file.url }}" download>Download Processed</a>
-            </li>
-        {% empty %}
-            <li>No processed audio files yet.</li>
-        {% endfor %}
-    </ul>
-
-    <h2>Show Notes</h2>
-    <ul>
-        {% for note in show_notes %}
-            <li>
-                <h3>{{ note.audio_file.title }}</h3>
-                <textarea id="show_notes_{{ note.id }}" rows="10" cols="80">{{ note.notes }}</textarea>
-                <br>
-                <button onclick="copyToClipboard('show_notes_{{ note.id }}')">Copy to Clipboard</button>
-                <a href="data:text/plain;charset=utf-8,{{ note.notes|urlencode }}" download="{{ note.audio_file.title }}_shownotes.txt">Download as .txt</a>
-            </li>
-        {% empty %}
-            <li>No show notes generated yet.</li>
-        {% endfor %}
-    </ul>
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Processed Audio Files
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for processed_file in processed_audio_files %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ processed_file.original_file.title }} (Processed)
+                            <a href="{{ processed_file.processed_file.url }}" class="btn btn-sm btn-outline-secondary" download>Download</a>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">No processed audio files yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Show Notes
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for note in show_notes %}
+                        <li class="list-group-item">
+                            <h5>{{ note.audio_file.title }}</h5>
+                            <textarea id="show_notes_{{ note.id }}" class="form-control" rows="5">{{ note.notes }}</textarea>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('show_notes_{{ note.id }}')">Copy</button>
+                                <a href="data:text/plain;charset=utf-8,{{ note.notes|urlencode }}" class="btn btn-sm btn-outline-secondary" download="{{ note.audio_file.title }}_shownotes.txt">Download</a>
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">No show notes generated yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <script>
         function copyToClipboard(elementId) {
