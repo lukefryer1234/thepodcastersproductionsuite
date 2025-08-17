@@ -17,4 +17,5 @@ urlpatterns = [
     path("cancel/", views.cancel, name="cancel"),
     path("stripe_webhook/", views.stripe_webhook, name="stripe_webhook"),
     path("create-portal-session/", views.create_portal_session, name="create_portal_session"),
+    path("reduce_noise/<int:audio_file_id>/", views.reduce_noise_view, name="reduce_noise_view"),
 ]

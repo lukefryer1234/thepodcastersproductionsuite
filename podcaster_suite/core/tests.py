@@ -226,3 +226,23 @@ class ProcessingTimeTest(TestCase):
         self.assertRedirects(response, reverse('dashboard'))
         self.subscription.refresh_from_db()
         self.assertEqual(self.subscription.remaining_processing_hours, 5)
+
+    @patch('core.views.reduce_noise')
+    @patch('pydub.AudioSegment.from_file')
+    def test_reduce_noise_view(self, mock_from_file, mock_reduce_noise):
+        mock_audio = type('obj', (object,), {'__len__': lambda self: 3600 * 1000})() # 1 hour
+        mock_from_file.return_value = mock_audio
+
+        processed_filename = 'processed_nr.mp3'
+        processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+        with open(processed_file_path, 'wb') as f:
+            f.write(self.audio_content)
+
+        mock_reduce_noise.return_value = (processed_file_path, processed_filename)
+
+        self.client.login(username='testuser', password='testpassword')
+        self.client.get(reverse('reduce_noise_view', args=[self.audio_file.id]))
+
+        self.assertEqual(ProcessedAudioFile.objects.count(), 1)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.remaining_processing_hours, 4)

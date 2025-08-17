@@ -294,6 +294,9 @@ def create_portal_session(request):
     )
     return redirect(portal_session.url)
 
+import noisereduce as nr
+from scipy.io import wavfile
+
 @csrf_exempt
 def stripe_webhook(request):
     payload = request.body
@@ -351,3 +354,52 @@ def stripe_webhook(request):
         subscription.save()
 
     return HttpResponse(status=200)
+
+@login_required
+def reduce_noise_view(request, audio_file_id):
+    audio_file = get_object_or_404(AudioFile, id=audio_file_id, user=request.user)
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+
+    # Check if the user has enough processing time
+    audio = AudioSegment.from_file(audio_file.audio_file.path)
+    duration_hours = len(audio) / (1000 * 60 * 60)
+
+    if subscription.remaining_processing_hours < duration_hours:
+        messages.error(request, "You don't have enough processing time left in your subscription.")
+        return redirect('dashboard')
+
+    processed_file_path, processed_filename = reduce_noise(audio_file.audio_file.path)
+
+    if processed_file_path:
+        with open(processed_file_path, 'rb') as f:
+            processed_audio_file = ProcessedAudioFile(original_file=audio_file)
+            processed_audio_file.processed_file.save(processed_filename, ContentFile(f.read()))
+            processed_audio_file.save()
+
+            # Deduct the processing time
+            subscription.remaining_processing_hours -= duration_hours
+            subscription.save()
+            messages.success(request, "Noise reduction has been applied successfully.")
+
+    return redirect('dashboard')
+
+
+def reduce_noise(audio_file_path):
+    # Convert to wav
+    audio = AudioSegment.from_file(audio_file_path)
+    wav_path = audio_file_path + ".wav"
+    audio.export(wav_path, format="wav")
+
+    rate, data = wavfile.read(wav_path)
+    # perform noise reduction
+    reduced_noise = nr.reduce_noise(y=data, sr=rate, prop_decrease=0.8)
+
+    processed_filename = f"processed_nr_{os.path.basename(audio_file_path)}"
+    processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+
+    wavfile.write(processed_file_path, rate, reduced_noise)
+
+    # Clean up the temporary wav file
+    os.remove(wav_path)
+
+    return processed_file_path, processed_filename
