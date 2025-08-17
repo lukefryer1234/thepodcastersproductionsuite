@@ -30,7 +30,18 @@ class RegistrationForm(forms.Form):
 
         return cleaned_data
 
+from django.core.validators import FileExtensionValidator
+
 class AudioFileForm(forms.ModelForm):
     class Meta:
         model = AudioFile
         fields = ['title', 'audio_file']
+        widgets = {
+            'audio_file': forms.ClearableFileInput(attrs={'accept': '.mp3,.wav,.m4a,.flac,.ogg'})
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(AudioFileForm, self).__init__(*args, **kwargs)
+        self.fields['audio_file'].validators.append(
+            FileExtensionValidator(allowed_extensions=['mp3', 'wav', 'm4a', 'flac', 'ogg'])
+        )

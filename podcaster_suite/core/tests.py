@@ -40,6 +40,20 @@ class CoreViewsTest(TestCase):
         self.assertEqual(AudioFile.objects.count(), 1)
         self.assertEqual(AudioFile.objects.first().title, 'Test Audio')
 
+    def test_upload_file_view_post_m4a(self):
+        # Create a dummy audio file
+        audio_content = b'This is a test audio file.'
+        audio_file = SimpleUploadedFile("test_audio.m4a", audio_content, content_type="audio/mp4")
+
+        response = self.client.post(reverse('upload_file'), {
+            'title': 'Test Audio M4A',
+            'audio_file': audio_file,
+        })
+
+        self.assertEqual(response.status_code, 302) # Should redirect to index
+        self.assertEqual(AudioFile.objects.count(), 1)
+        self.assertEqual(AudioFile.objects.first().title, 'Test Audio M4A')
+
 class AuthViewsTest(TestCase):
     def setUp(self):
         self.client = Client()
