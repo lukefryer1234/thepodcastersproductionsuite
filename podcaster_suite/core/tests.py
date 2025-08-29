@@ -246,3 +246,43 @@ class ProcessingTimeTest(TestCase):
         self.assertEqual(ProcessedAudioFile.objects.count(), 1)
         self.subscription.refresh_from_db()
         self.assertEqual(self.subscription.remaining_processing_hours, 4)
+
+    @patch('core.views.equalize_audio')
+    @patch('pydub.AudioSegment.from_file')
+    def test_equalize_audio_view(self, mock_from_file, mock_equalize_audio):
+        mock_audio = type('obj', (object,), {'__len__': lambda self: 3600 * 1000})() # 1 hour
+        mock_from_file.return_value = mock_audio
+
+        processed_filename = 'processed_eq.mp3'
+        processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+        with open(processed_file_path, 'wb') as f:
+            f.write(self.audio_content)
+
+        mock_equalize_audio.return_value = (processed_file_path, processed_filename)
+
+        self.client.login(username='testuser', password='testpassword')
+        self.client.get(reverse('equalize_audio_view', args=[self.audio_file.id]))
+
+        self.assertEqual(ProcessedAudioFile.objects.count(), 1)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.remaining_processing_hours, 4)
+
+    @patch('core.views.normalize_audio')
+    @patch('pydub.AudioSegment.from_file')
+    def test_normalize_audio_view(self, mock_from_file, mock_normalize_audio):
+        mock_audio = type('obj', (object,), {'__len__': lambda self: 3600 * 1000})() # 1 hour
+        mock_from_file.return_value = mock_audio
+
+        processed_filename = 'processed_norm.mp3'
+        processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+        with open(processed_file_path, 'wb') as f:
+            f.write(self.audio_content)
+
+        mock_normalize_audio.return_value = (processed_file_path, processed_filename)
+
+        self.client.login(username='testuser', password='testpassword')
+        self.client.get(reverse('normalize_audio_view', args=[self.audio_file.id]))
+
+        self.assertEqual(ProcessedAudioFile.objects.count(), 1)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.remaining_processing_hours, 4)

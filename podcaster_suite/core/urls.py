@@ -18,4 +18,6 @@ urlpatterns = [
     path("stripe_webhook/", views.stripe_webhook, name="stripe_webhook"),
     path("create-portal-session/", views.create_portal_session, name="create_portal_session"),
     path("reduce_noise/<int:audio_file_id>/", views.reduce_noise_view, name="reduce_noise_view"),
+    path("equalize/<int:audio_file_id>/", views.equalize_audio_view, name="equalize_audio_view"),
+    path("normalize/<int:audio_file_id>/", views.normalize_audio_view, name="normalize_audio_view"),
 ]

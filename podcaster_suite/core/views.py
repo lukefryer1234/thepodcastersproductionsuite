@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from .models import AudioFile, ProcessedAudioFile, ShowNotes, SubscriptionPlan, UserSubscription
 from deepgram import DeepgramClient, PrerecordedOptions
 from pydub import AudioSegment
+from pydub.effects import normalize
 from django.conf import settings
 from django.core.files.base import ContentFile
 import openai
@@ -401,5 +402,91 @@ def reduce_noise(audio_file_path):
 
     # Clean up the temporary wav file
     os.remove(wav_path)
+
+    return processed_file_path, processed_filename
+
+@login_required
+def equalize_audio_view(request, audio_file_id):
+    audio_file = get_object_or_404(AudioFile, id=audio_file_id, user=request.user)
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+
+    # Check if the user has enough processing time
+    audio = AudioSegment.from_file(audio_file.audio_file.path)
+    duration_hours = len(audio) / (1000 * 60 * 60)
+
+    if subscription.remaining_processing_hours < duration_hours:
+        messages.error(request, "You don't have enough processing time left in your subscription.")
+        return redirect('dashboard')
+
+    processed_file_path, processed_filename = equalize_audio(audio_file.audio_file.path)
+
+    if processed_file_path:
+        with open(processed_file_path, 'rb') as f:
+            processed_audio_file = ProcessedAudioFile(original_file=audio_file)
+            processed_audio_file.processed_file.save(processed_filename, ContentFile(f.read()))
+            processed_audio_file.save()
+
+            # Deduct the processing time
+            subscription.remaining_processing_hours -= duration_hours
+            subscription.save()
+            messages.success(request, "Your audio has been equalized successfully.")
+
+    return redirect('dashboard')
+
+
+def equalize_audio(audio_file_path, bass_db=3, mid_db=0, treble_db=-3):
+    audio = AudioSegment.from_file(audio_file_path)
+
+    # Create a 3-band equalizer
+    bass = audio.low_pass_filter(250) + bass_db
+    mids = audio.high_pass_filter(250).low_pass_filter(4000) + mid_db
+    treble = audio.high_pass_filter(4000) + treble_db
+
+    equalized_audio = bass.overlay(mids).overlay(treble)
+
+    processed_filename = f"processed_eq_{os.path.basename(audio_file_path)}"
+    processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+
+    equalized_audio.export(processed_file_path, format="mp3")
+
+    return processed_file_path, processed_filename
+
+@login_required
+def normalize_audio_view(request, audio_file_id):
+    audio_file = get_object_or_404(AudioFile, id=audio_file_id, user=request.user)
+    subscription = get_object_or_404(UserSubscription, user=request.user)
+
+    # Check if the user has enough processing time
+    audio = AudioSegment.from_file(audio_file.audio_file.path)
+    duration_hours = len(audio) / (1000 * 60 * 60)
+
+    if subscription.remaining_processing_hours < duration_hours:
+        messages.error(request, "You don't have enough processing time left in your subscription.")
+        return redirect('dashboard')
+
+    processed_file_path, processed_filename = normalize_audio(audio_file.audio_file.path)
+
+    if processed_file_path:
+        with open(processed_file_path, 'rb') as f:
+            processed_audio_file = ProcessedAudioFile(original_file=audio_file)
+            processed_audio_file.processed_file.save(processed_filename, ContentFile(f.read()))
+            processed_audio_file.save()
+
+            # Deduct the processing time
+            subscription.remaining_processing_hours -= duration_hours
+            subscription.save()
+            messages.success(request, "Your audio has been normalized successfully.")
+
+    return redirect('dashboard')
+
+
+def normalize_audio(audio_file_path):
+    audio = AudioSegment.from_file(audio_file_path)
+    normalized_audio = normalize(audio)
+
+    processed_filename = f"processed_norm_{os.path.basename(audio_file_path)}"
+    processed_file_path = os.path.join(settings.MEDIA_ROOT, processed_filename)
+
+    normalized_audio.export(processed_file_path, format="mp3")
 
     return processed_file_path, processed_filename

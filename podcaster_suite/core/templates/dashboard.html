@@ -48,6 +48,8 @@
                                 <a href="{{ audio_file.audio_file.url }}" class="btn btn-sm btn-outline-secondary" download>Download</a>
                                 <a href="{% url 'de_um_audio' audio_file.id %}" class="btn btn-sm btn-outline-primary">De-Um Audio</a>
                                 <a href="{% url 'reduce_noise_view' audio_file.id %}" class="btn btn-sm btn-outline-success">Reduce Noise</a>
+                                <a href="{% url 'equalize_audio_view' audio_file.id %}" class="btn btn-sm btn-outline-warning">Equalize</a>
+                                <a href="{% url 'normalize_audio_view' audio_file.id %}" class="btn btn-sm btn-outline-danger">Normalize</a>
                                 <a href="{% url 'generate_show_notes' audio_file.id %}" class="btn btn-sm btn-outline-info">Generate Show Notes</a>
                             </div>
                         </li>
